@@ -1,0 +1,34 @@
+image: docker:latest
+services:
+  - docker:dind
+variables:
+  DOCKER_DRIVER: overlay2
+  IMAGE_CACHE_TARGET: builder
+  IMAGE_CACHE: yuriyvlasov/health-checker:build_cache
+  IMAGE_VERSIONED: yuriyvlasov/modbus-slave:$CI_COMMIT_REF_NAME
+  IMAGE_LATEST: yuriyvlasov/modbus-slave:latest
+
+stages:
+  - build
+
+before_script:
+  - docker info
+  - docker login -u $DOCKERHUB_USER -p $DOCKERHUB_PASSWORD
+
+Build image:
+  stage: build
+  only:
+    - /^v\d+(\.\d+)+$/
+  except:
+    - branches
+  script: |
+    VERSION="${CI_COMMIT_REF_NAME}"
+    echo "VERSION = ${VERSION}"
+    sed -i -E "s/(version\s*=\s*')[a-zA-Z0-9.]+(',)/\1${VERSION}\2/g" setup.py
+    docker pull $IMAGE_CACHE || echo '[WARN] Cache image was not pulled.' 1>&2
+    docker build --pull -t $IMAGE_CACHE --cache-from $IMAGE_CACHE --target $IMAGE_CACHE_TARGET .
+    docker push $IMAGE_CACHE
+    docker build --pull --cache-from $IMAGE_CACHE --cache-from $IMAGE_LATEST -t $IMAGE_VERSIONED .
+    docker push $IMAGE_VERSIONED
+    docker tag $IMAGE_VERSIONED $IMAGE_LATEST
+    docker push $IMAGE_LATEST
