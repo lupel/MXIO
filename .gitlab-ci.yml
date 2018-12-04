@@ -22,7 +22,7 @@ Build image:
   except:
     - branches
   script: |
-    VERSION="${CI_COMMIT_REF_NAME}"
+    VERSION="${CI_COMMIT_REF_NAME##v}"
     echo "VERSION = ${VERSION}"
     sed -i -E "s/(version\s*=\s*')[a-zA-Z0-9.]+(',)/\1${VERSION}\2/g" setup.py
     docker pull $IMAGE_CACHE || echo '[WARN] Cache image was not pulled.' 1>&2

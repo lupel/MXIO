@@ -3,50 +3,61 @@
 # Read about environment variables in README.md
 
 import logging
+import yaml
 
-from os import getenv
+from os import getenv, path
 
 
 class Configuration(object):
     singleton_object = None
 
+    @staticmethod
+    def configure_logging():
+        """
+        Configure logging depending on server settings.
+        :return:
+        """
+        logging_format = '%(asctime)s [%(levelname)s] Line: %(lineno)d | %(message)s'
+        if getenv('DEBUG', 'false').lower() == 'true':
+            logging_level = logging.DEBUG
+        else:
+            logging_level = logging.INFO
+        logging.basicConfig(format=logging_format, level=logging_level)
+
     def __new__(cls, *args, **kwargs):
         if not Configuration.singleton_object:
+            Configuration.configure_logging()
             logging.debug('Config: creating new object')
             Configuration.singleton_object = super().__new__(cls, *args, **kwargs)
         return Configuration.singleton_object
 
-    class CurlConfiguration:
-        def __init__(self, urls):
-            self.urls = urls
+    class GeneralConfiguration:
+        def __init__(self, debug=None):
+            self.debug = debug
 
-    class PingConfiguration:
-        def __init__(self, urls):
-            self.urls = urls
-
-    class SmtpConfiguration:
-        def __init__(self, server, port, user, password):
-            self.server = server
+    class ServerConfiguration:
+        def __init__(self, port=None):
             self.port = port
-            self.user = user
-            self.password = password
-            self.configured = server and port and user and password
 
-    class SlackConfiguration:
-        def __init__(self, webhook_url):
-            self.webhook_url = webhook_url
-            self.configured = webhook_url and webhook_url
+    class SlaveConfiguration:
+        def __init__(self, quantity=None):
+            self.quantity = quantity
+            pass
 
-    class NotificationConfiguration:
-        def __init__(self, enabled, interval, emails):
-            self.enabled = enabled
-            self.interval = interval
-            self.emails = emails
+    def _read_config_file(self):
+        conf_path = getenv('CONFIG_PATH', '/app/config.yaml')
+        if path.exists(conf_path):
+            with open(conf_path, 'r') as file:
+                try:
+                    self.config = yaml.load(file)
+                    logging.debug(self.config)
+                except yaml.YAMLError as e:
+                    logging.error(f'Config: YAML parse error: {str(e)}')
 
-    class CheckingConfiguration:
-        def __init__(self, interval, fails_limit):
-            self.interval = interval
-            self.fails_limit = fails_limit
+    def _read_env_vars(self):
+        self.general.debug = getenv('DEBUG', self.config.get('debug', 'false').lower()).lower() == 'true'
+        self.server.port = int(getenv('LISTEN_PORT', self.config.get('listen-port', 3343)))
+        self.slave.quantity = int(getenv('SLAVES_QTY', self.config.get('slaves-qty', 1)))
 
     def __init__(self):
         try:
@@ -56,35 +67,14 @@ class Configuration(object):
             pass
         logging.debug('Config: init() called')
         try:
-            self.curl = self.CurlConfiguration(
-                urls=list(filter(None, getenv('CURL', '').split(';;')))
-            )
-            self.ping = self.PingConfiguration(
-                urls=list(filter(None, getenv('PING', '').split(';;')))
-            )
-            if not self.curl.urls and not self.ping.urls:
-                raise Exception('Configuration: Neither curls nor pings were passed')
-            self.smtp = self.SmtpConfiguration(
-                server=getenv('SMTP_SERVER'),
-                port=int(getenv('SMTP_PORT', 465)),
-                user=getenv('SMTP_USER'),
-                password=getenv('SMTP_PASSWORD')
-            )
-            self.slack = self.SlackConfiguration(
-                webhook_url=getenv('SLACK_WEBHOOK_URL')
-            )
-            self.notification = self.NotificationConfiguration(
-                enabled=getenv('NOTIFICATION_ENABLED', 'true').lower() != 'false',
-                interval=int(getenv('NOTIFICATION_INTERVAL', 5)),
-                emails=list(filter(None, getenv('EMAILS', '').split(';;')))
-            )
-            self.checking = self.CheckingConfiguration(
-                interval=int(getenv('CHECK_INTERVAL', 10)),
-                fails_limit=int(getenv('FAILS_LIMIT', 3))
-            )
-            logging.info(f"Config: curl urls: {self.curl.urls}")
-            logging.info(f"Config: ping urls: {self.ping.urls}")
-            logging.info(f"Config: notification emails: {self.notification.emails}")
+            self.config = {}
+            self.general = Configuration.GeneralConfiguration()
+            self.server = Configuration.ServerConfiguration()
+            self.slave = Configuration.SlaveConfiguration()
+            # read configs
+            self._read_config_file()
+            self._read_env_vars()
+            logging.debug('Config: initialization done')
             self.initialized = True
         except AttributeError as e:
             logging.error(f'Config: initialization error: {str(e)}')
