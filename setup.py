@@ -25,7 +25,7 @@ setup(
         'Programming Language :: Python :: 3.7'
     ],
     packages=find_packages(),
-    install_requires=['PyYAML', 'crcmod'],
+    install_requires=['PyYAML'],
     entry_points={
         'console_scripts': [
             'modbus-slave = main.main:entrypoint',

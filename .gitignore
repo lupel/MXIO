@@ -3,5 +3,3 @@
 .idea/**
 venv/
 venv/**
-debug.py
-response.bin

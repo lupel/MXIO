@@ -40,8 +40,9 @@ class Configuration(object):
             self.port = port
 
     class SlaveConfiguration:
-        def __init__(self, quantity=None):
+        def __init__(self, quantity=None, random=None):
             self.quantity = quantity
+            self.random = random
             pass
 
     def _read_config_file(self):
@@ -51,13 +52,22 @@ class Configuration(object):
                 try:
                     self.config = yaml.load(file)
                     logging.debug(self.config)
+                    self.general.debug = self.config.get('server', {}).get('debug', False)
+                    self.server.port = int(self.config.get('server', {}).get('port', 1502))
+                    self.slave.quantity = int(self.config.get('slave', {}).get('quantity', 1))
+                    self.slave.random = bool(self.config.get('slave', {}).get('random', False))
                 except yaml.YAMLError as e:
                     logging.error(f'Config: YAML parse error: {str(e)}')
 
     def _read_env_vars(self):
-        self.general.debug = getenv('DEBUG', self.config.get('debug', 'false').lower()).lower() == 'true'
-        self.server.port = int(getenv('LISTEN_PORT', self.config.get('listen-port', 3343)))
-        self.slave.quantity = int(getenv('SLAVES_QTY', self.config.get('slaves-qty', 1)))
+        if getenv('DEBUG'):
+            self.general.debug = getenv('DEBUG').lower() == 'true'
+        if getenv('LISTEN_PORT'):
+            self.server.port = int(getenv('LISTEN_PORT', 1502))
+        if getenv('SLAVES_QTY'):
+            self.slave.quantity = int(getenv('SLAVES_QTY', 1))
+        if getenv('RANDOM'):
+            self.slave.random = getenv('RANDOM').lower() == 'true'
 
     def __init__(self):
         try:

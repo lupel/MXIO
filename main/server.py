@@ -5,7 +5,7 @@ import logging
 import socket
 
 from main.configuration import Configuration
-from main.slave import Slave
+
 
 class Server:
     def __init__(self, slaves):
@@ -18,40 +18,53 @@ class Server:
         logging.info(f'Server: listen 0.0.0.0:{self.config.port}')
 
     def spawn(self):
-        def close_socket(s: socket.socket, return_code=None):
+        def answer_to_client(s: socket.socket, response=None, disconnect=False):
             try:
-                if return_code:
-                    s.send(return_code)
-                s.close()
+                if response:
+                    logging.debug(f'Server: response: {response.hex()}')
+                    s.sendall(response)
+                if disconnect:
+                    s.close()
             except:
                 pass
             #
-        self.socket.listen(5)
+        self.socket.listen(1)
+        (client, address) = (None, None)
         while True:
             try:
-                (client, address) = self.socket.accept()
+                if not client:
+                    (client, address) = self.socket.accept()
                 logging.debug(f'Server: request from {str(address)}')
-                slave_address = client.recv(40)
-                if not slave_address or slave_address == b'':
-                    logging.warning(f'Server: slave_address empty: {slave_address}')
-                    close_socket(client, return_code=b'\0')
+                data = client.recv(12228)
+                logging.debug(f'Server: received: {data.hex()}')
+                if not data or data == b'' or data == b'\0':
+                    logging.error(f'Server: no data was received: {slave_address}')
+                    answer_to_client(client, disconnect=True)
+                    client = None
                     continue
-                slave_address = int(slave_address[0])
-                if slave_address == 0 or slave_address > len(self.slaves):
-                    logging.warning(f'Server: slave_address out of range: {slave_address}')
-                    close_socket(client, return_code=b'\0')
+                elif len(data) < 8:
+                    logging.error(f'Server: data length < 8: {len(data)}')
+                    answer_to_client(client, disconnect=True)
+                    client = None
+                    continue
+                slave_address = int(data[6])
+                if slave_address == 0 or slave_address > len(self.slaves) or not slave_address:
+                    logging.error(f'Server: slave_address out of range: {slave_address}')
+                    answer_to_client(client, disconnect=True)
+                    client = None
                     continue
                 # slave address is in limits - trying to receive parcel
                 response = self.slaves[slave_address - 1].receive(
                     slave_address=slave_address,
-                    client=client
+                    data=data
                 )
                 if not response:
-                    close_socket(client, b'\0')
+                    answer_to_client(client, disconnect=True)
+                    client = None
                 else:
-                    close_socket(client, response)
+                    answer_to_client(client, response)
             except Exception as e:
                 logging.error(f'Server: {str(e)}')
-            finally:
-                close_socket(client)
+                answer_to_client(client, disconnect=True)
+                client = None
         pass
