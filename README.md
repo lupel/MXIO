@@ -18,7 +18,6 @@ All configuration is made via environment variables.
 Environment variables have are override any settings found in YAML.
 ```yaml
 server:
-  debug: true # bool
   port: 1502  # int
 slave:
   random: true  # bool
@@ -27,7 +26,6 @@ slave:
 
 | Key | Default | Description | Type |
 | ---- | ------- | ----------- | ------- |
-| `server.debug` | false | see environment variable DEBUG | bool |
 | `server.port` | 1502 | see environment variable LISTEN_PORT | int |
 | `slave.random` | 1 | see environment variable RANDOM | bool |
 | `slave.quantity` | 1 | see environment variable SLAVES_QTY | int |

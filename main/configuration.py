@@ -32,15 +32,15 @@ class Configuration(object):
         return Configuration.singleton_object
 
     class GeneralConfiguration:
-        def __init__(self, debug=None):
+        def __init__(self, debug=False):
             self.debug = debug
 
     class ServerConfiguration:
-        def __init__(self, port=None):
+        def __init__(self, port=1502):
             self.port = port
 
     class SlaveConfiguration:
-        def __init__(self, quantity=None, random=None):
+        def __init__(self, quantity=1, random=False):
             self.quantity = quantity
             self.random = random
             pass
@@ -60,8 +60,6 @@ class Configuration(object):
                     logging.error(f'Config: YAML parse error: {str(e)}')
 
     def _read_env_vars(self):
-        if getenv('DEBUG'):
-            self.general.debug = getenv('DEBUG').lower() == 'true'
         if getenv('LISTEN_PORT'):
             self.server.port = int(getenv('LISTEN_PORT', 1502))
         if getenv('SLAVES_QTY'):
